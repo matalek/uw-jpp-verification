@@ -41,6 +41,7 @@ processList(N, [N1|T]) :-
 	N1 is N - 1,
 	processList(N1, T).
 
+% member(Indeks, Tablica, Wartość).
 member(0, [H|_], H). % ew. odcięcie
 member(N, [_|T], Res) :-
 	N > 0,
@@ -82,13 +83,13 @@ setArrayCell([val(Y, V)|T1], X, I, N, [val(X, V)|T2]) :-
 
 stepSingle(assign(X, Exp), Id, singleState(V1, A1, P1), singleState(V2, A1, P2)) :-
 	member(val(X, _), V1), % do zastanowienia się, ew. różne od arr
-	eval(Exp, Id,  N),
+	eval(Exp, V1, A1, Id,  N),
 	setVariable(V1, X, N, V2),
 	P2 is P1 + 1.
 
 stepSingle(assign(arr(X, Exp1), Exp2), Id, singleState(V1, A1, P1), singleState(V1, A2, P2)) :-
-	eval(Exp1, Id, I),
-	eval(Exp2, Id, N),
+	eval(Exp1, V1, A1, Id, I),
+	eval(Exp2, V1, A1, Id, N),
 	setArrayCell(A1, X, I, N, A2),
 	P2 is P1 + 1.
 
@@ -97,10 +98,34 @@ stepSingle(goto(In), _, singleState(V, A, _), singleState(V, A, In)).
 stepSingle(sekcja, _, singleState(V, A, P1), singleState(V, A, P2)) :-
 	P2 is P1 + 1.
 
-% eval(Wyrażenie, NumerProcesu, Wartość).
-eval(N, _, N) :- integer(N).
-eval(pid, Id, Id).
+% eval(Wyrażenie, Zmienne, Tablice, NumerProcesu, Wartość).
+% TODO: przemyśleć odcięcia
+eval(N, _, _, _, N) :- integer(N).
+eval(pid, _, _, Id, Id).
+eval(arr(V, Exp), Vs, As, Id, N) :-
+	member(val(V, Arr), As),
+	eval(Exp, Vs, As, Id, I),
+	member(I, Arr, N).
+eval(V, Vs, _, _, N) :-
+	member(val(V, N), Vs). 
 
+% TODO: czy da się ładniej?
+eval(E1 + E2, Vs, As, Id, N) :-
+	eval(E1, E2, Vs, As, Id, N1, N2),
+	N is N1 + N2.
+eval(E1 - E2, Vs, As, Id, N) :-
+	eval(E1, E2, Vs, As, Id, N1, N2),
+	N is N1 - N2.
+eval(E1 * E2, Vs, As, Id, N) :-
+	eval(E1, E2, Vs, As, Id, N1, N2),
+	N is N1 * N2.
+eval(E1 / E2, Vs, As, Id, N) :-
+	eval(E1, E2, Vs, As, Id, N1, N2),
+	N is N1 / N2.
+
+eval(E1, E2, Vs, As, Id, N1, N2) :-
+	eval(E1, Vs, As, Id, N1),
+	eval(E2, Vs, As, Id, N2).
 
 % pomocne w testowaniu
 exampleState(P, In) :- testProgram(P), initState(P, In).
