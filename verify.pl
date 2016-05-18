@@ -1,3 +1,7 @@
+% Aleksander Matusiak
+
+:- ensure_loaded(library(lists)).
+
 % Reprezentacja programu:
 % state(lista  val(zmienna, wartość), lista val(nazwa tablicy, lista kolejnych wartości), lista z licznikiem instrukcji)
 
@@ -99,10 +103,12 @@ stepSingle(assign(arr(X, Exp1), Exp2), Id, singleState(V1, A1, P1), singleState(
 	setArrayCell(A1, X, I, N, A2),
 	P2 is P1 + 1.
 
-stepSingle(goto(In), _, singleState(V, A, _), singleState(V, A, In)).
+stepSingle(goto(In1), _, singleState(V, A, _), singleState(V, A, In)) :-
+	In is In1 - 1.
 
 % TODO: może rozbić na 2 formuły z negacją (ale co, gdy coś nieustalone?)
-stepSingle(condGoto(BExp, In), Id, singleState(V, A, P1), singleState(V, A, P2)) :-
+stepSingle(condGoto(BExp, In1), Id, singleState(V, A, P1), singleState(V, A, P2)) :-
+	In is In1 - 1,
 	(evalBool(BExp, V, A, Id) ->
 	    P2 = In;
 	    P2 is P1 + 1
@@ -156,7 +162,7 @@ evalBool(E1 <> E2, Vs, As, Id) :-
 	N1 =\= N2.
 
 % pomocne w testowaniu
-exampleState(P, In) :- testProgram(P), initState(P, In).
+exampleState(P, In) :- testProgram(2, P), initState(P, In).
 
 testStep(Id, Out) :- exampleState(P, In),
 	step(P, In, Id, Out). 
@@ -195,36 +201,44 @@ unsafe(Program, State, Acc, Path) :-
 	unsafe(Program, Out, [State|Acc], Path).
 
 unsafe2(Program, State, Un) :-
-	traverse(Program, State, [], _, [], Un).
+	traverse(Program, State, [], [], _, [], Un).
 
 safe(Program) :-
 	initState(Program, In),
 	unsafe2(Program, In, []).
-	
 
-traverse(Program, State, Vis, Vis, Un,[State|Un]) :-
+findError(Program, Err2) :-
+	initState(Program, In),
+	unsafe2(Program, In, [Err1|_]),
+	reverse(Err1, Err2).
+
+traverse(Program, State, Stack, Vis, Vis, Un,[Stack|Un]) :-
 	collision(Program, State),
 	!. % brzydkie - dodać niżej nie kolizja 
 
-traverse(Program, State, Vis, Vis, Un, Un) :-
+traverse(Program, State, _, Vis, Vis, Un, Un) :-
 	% pewnie nieprawda że kolizja - czy dodać?
 	\+ collision(Program, State),
 	member(State, Vis). % ew. odcięcie
 
-traverse(program(V, A, N, P), State, Vis1, Vis, Un1, Un) :-
+traverse(program(V, A, N, P), State, Stack, Vis1, Vis, Un1, Un) :-
 	\+ member(State, Vis1),
 	%step(program(V, A, N, P), State, Id, Out),
-	traverse(program(V, A, N, P), State, 0, [State|Vis1], Vis, Un1, Un).
+	traverse(program(V, A, N, P), State, 0, Stack, [State|Vis1], Vis, Un1, Un).
 	%Id1 is Id + 1,
 	%traverse(program(V, A, N, P), State, Id1, Vis2, Vis, Un2, Un).
-	
 
 
-traverse(program(_, _, N, _), _, N, Vis, Vis, Un, Un).
 
-traverse(program(V, A, N, P), State, Id, Vis1, Vis, Un1, Un) :-
+traverse(program(_, _, N, _), _, N, _, Vis, Vis, Un, Un).
+
+traverse(program(V, A, N, P), State, Id, Stack, Vis1, Vis, Un1, Un) :-
 	Id < N,
 	step(program(V, A, N, P), State, Id, Out),
-	traverse(program(V, A, N, P), Out, Vis1, Vis2, Un1, Un2),
+	findCurrent(State, Id, Cur),
+	traverse(program(V, A, N, P), Out, [(Id, Cur)|Stack], Vis1, Vis2, Un1, Un2),
 	Id1 is Id + 1,
-	traverse(program(V, A, N, P), State, Id1, Vis2, Vis, Un2, Un).
+	traverse(program(V, A, N, P), State, Id1, Stack, Vis2, Vis, Un2, Un).
+
+findCurrent(state(_, _, Ps), Id, Cur) :-
+	member(Id, Ps, Cur).
