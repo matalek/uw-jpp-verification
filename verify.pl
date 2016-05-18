@@ -256,7 +256,12 @@ findCurrent(state(_, _, Ps), Id, Cur) :-
 	member(Id, Ps, Cur).
 
 verify(N, File) :-
-	open(File, read, F),
+	(N =< 0 ->
+	    write('Error: parametr 0 powinien byc liczba > 0'), nl, fail
+	; true ),
+	catch(open(File, read, F),
+	      _,
+	      (format('Error: brak pliku o nazwie - ~s', [File]), nl, fail)),
 	read(F, vars(Vs)),
 	read(F, arrays(As)),
 	read(F, program(Stmts)),
