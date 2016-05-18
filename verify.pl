@@ -123,9 +123,24 @@ eval(E1 / E2, Vs, As, Id, N) :-
 	eval(E1, E2, Vs, As, Id, N1, N2),
 	N is N1 / N2.
 
+% pomocnicze dla 2 wyrażeń
 eval(E1, E2, Vs, As, Id, N1, N2) :-
 	eval(E1, Vs, As, Id, N1),
 	eval(E2, Vs, As, Id, N2).
+
+:- op(700, xfx, <>).
+
+evalBool(E1 < E2, Vs, As, Id) :-
+	eval(E1, E2, Vs, As, Id, N1, N2),
+	N1 < N2.
+
+evalBool(E1 = E2, Vs, As, Id) :-
+	eval(E1, E2, Vs, As, Id, N1, N2),
+	N1 =:= N2.
+
+evalBool(E1 <> E2, Vs, As, Id) :-
+	eval(E1, E2, Vs, As, Id, N1, N2),
+	N1 =\= N2.
 
 % pomocne w testowaniu
 exampleState(P, In) :- testProgram(P), initState(P, In).
