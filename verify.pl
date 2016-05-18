@@ -3,8 +3,9 @@
 
 vars([k]).
 arrays([chce]).
-program1([assign(arr(chce, pid), 1), assign(k, pid),
-	 condGoto(arr(chce, 1-pid) = 0, 5),
+program1([
+	  %assign(arr(chce, pid), 1), assign(k, pid),
+	 condGoto(arr(chce, 1-pid) = pid, 5),
 	 condGoto(k = pid, 3),
 	 sekcja, assign(arr(chce, pid), 0), goto(1)]).
 
@@ -94,6 +95,13 @@ stepSingle(assign(arr(X, Exp1), Exp2), Id, singleState(V1, A1, P1), singleState(
 	P2 is P1 + 1.
 
 stepSingle(goto(In), _, singleState(V, A, _), singleState(V, A, In)).
+
+% TODO: może rozbić na 2 formuły z negacją (ale co, gdy coś nieustalone?)
+stepSingle(condGoto(BExp, In), Id, singleState(V, A, P1), singleState(V, A, P2)) :-
+	(evalBool(BExp, V, A, Id) ->
+	    P2 = In;
+	    P2 is P1 + 1
+	).
 
 stepSingle(sekcja, _, singleState(V, A, P1), singleState(V, A, P2)) :-
 	P2 is P1 + 1.
