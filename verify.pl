@@ -8,7 +8,7 @@
 vars1([k]).
 arrays1([chce]).
 program1([assign(arr(chce, pid), 1), assign(k, pid),
-	 condGoto(arr(chce, 1-pid) = pid, 5),
+	 condGoto(arr(chce, 1-pid) = 0, 5),
 	 condGoto(k = pid, 3),
 	 sekcja, assign(arr(chce, pid), 0), goto(1)]).
 
@@ -162,7 +162,7 @@ evalBool(E1 <> E2, Vs, As, Id) :-
 	N1 =\= N2.
 
 % pomocne w testowaniu
-exampleState(P, In) :- testProgram(2, P), initState(P, In).
+exampleState(I, P, In) :- testProgram(I, P), initState(P, In).
 
 testStep(Id, Out) :- exampleState(P, In),
 	step(P, In, Id, Out). 
@@ -193,12 +193,17 @@ unsafe(Program, State, Acc, [State|Acc]) :- collision(Program, State).
 unsafe(Program, State, Acc, Path) :-
 	\+ member(State, Acc),
 	%length(Acc, N),
-	%write(State),
-	%format("~n",[]),
+	write(State),
+	format("~n",[]),
 	%write(N),
 	%format("~n",[]),
 	step(Program, State, _, Out),
 	unsafe(Program, Out, [State|Acc], Path).
+
+% zbyt naiwne - nie działa
+unsafe0(Program, Path) :-
+	initState(Program, In),
+	unsafe(Program, In, Path).
 
 unsafe2(Program, State, Un) :-
 	traverse(Program, State, [], [], _, [], Un).
@@ -209,10 +214,11 @@ safe(Program) :-
 
 findError(Program, Err2) :-
 	initState(Program, In),
-	unsafe2(Program, In, [Err1|_]),
+	unsafe2(Program, In, [(Err1, St)|_]),
+	write(St),
 	reverse(Err1, Err2).
 
-traverse(Program, State, Stack, Vis, Vis, Un,[Stack|Un]) :-
+traverse(Program, State, Stack, Vis, Vis, Un,[(Stack, State)|Un]) :-
 	collision(Program, State),
 	!. % brzydkie - dodać niżej nie kolizja 
 
