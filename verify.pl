@@ -3,11 +3,14 @@
 
 vars([k]).
 arrays([chce]).
-program1([
-	  %assign(arr(chce, pid), 1), assign(k, pid),
+program1([assign(arr(chce, pid), 1), assign(k, pid),
 	 condGoto(arr(chce, 1-pid) = pid, 5),
 	 condGoto(k = pid, 3),
 	 sekcja, assign(arr(chce, pid), 0), goto(1)]).
+
+%vars([x]).
+%arrays([]).
+%program1([assign(x, pid), sekcja, goto(1)]).
 
 testProgram(program(V, A, 2, P)) :- vars(V), arrays(A), program1(P).
 
@@ -156,3 +159,35 @@ exampleState(P, In) :- testProgram(P), initState(P, In).
 testStep(Id, Out) :- exampleState(P, In),
 	step(P, In, Id, Out). 
 	
+
+% Sprawdzanie poprawności
+% collision(Program, Stan) == w stanie 2 procesy są w sekcji krytycznej
+collision(program(_, _, _, Stmts), state(_, _, Ps)) :-
+	inSection(Ps, Stmts, N),
+	N > 1.
+
+% inSection(TreśćProgramu, ListaLiczników, LiczbaProcesówWSekcji).
+inSection(Ps, Stmts, N) :- inSection(Ps, Stmts, 0, N).
+
+inSection([], _, N, N).
+inSection([H|T], Stmts, Acc, N) :-
+	(member(H, Stmts, sekcja) ->
+	    Acc1 is Acc + 1;
+	    Acc1 = Acc
+	), inSection(T, Stmts, Acc1, N).
+
+% unsafe - istnieje przeplot do złego stanu - nie ma bezpieczeństwa
+% i to jest ścieżka stanów do niego prowadząca (odwrotna)
+unsafe(Program, State, Path) :- unsafe(Program, State, [], Path).
+
+unsafe(Program, State, Acc, [State|Acc]) :- collision(Program, State).
+
+unsafe(Program, State, Acc, Path) :-
+	\+ member(State, Acc),
+	%length(Acc, N),
+	%write(State),
+	%format("~n",[]),
+	%write(N),
+	%format("~n",[]),
+	step(Program, State, _, Out),
+	unsafe(Program, Out, [State|Acc], Path).
