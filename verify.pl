@@ -170,25 +170,32 @@ testStep(Id, Out) :- exampleState(P, In),
 
 % Sprawdzanie poprawności
 % collision(Program, Stan) == w stanie 2 procesy są w sekcji krytycznej
-collision(program(_, _, _, Stmts), state(_, _, Ps)) :-
-	inSection(Ps, Stmts, N),
+collision(program(_, _, _, Stmts), state(_, _, Ps), L) :-
+	inSection(Ps, Stmts, L),
+	length(L, N),
 	N > 1.
 
-% inSection(TreśćProgramu, ListaLiczników, LiczbaProcesówWSekcji).
-inSection(Ps, Stmts, N) :- inSection(Ps, Stmts, 0, N).
+collision(Program, State) :- collision(Program, State, _).
 
-inSection([], _, N, N).
-inSection([H|T], Stmts, Acc, N) :-
+
+% inSection(ListaLiczników, TreśćProgramu, ListaProcesówWSekcji).
+inSection(Ps, Stmts, In) :- inSection(Ps, Stmts, 0, In).
+
+
+inSection([], _, _, []).
+inSection([H|T], Stmts, I, Res) :-
 	(member(H, Stmts, sekcja) ->
-	    Acc1 is Acc + 1;
-	    Acc1 = Acc
-	), inSection(T, Stmts, Acc1, N).
+	    Res = [I|L];
+	    Res = L
+	),
+	I1 is I + 1,
+	inSection(T, Stmts, I1, L).
 
 % unsafe - istnieje przeplot do złego stanu - nie ma bezpieczeństwa
 % i to jest ścieżka stanów do niego prowadząca (odwrotna)
 unsafe(Program, State, Path) :- unsafe(Program, State, [], Path).
 
-unsafe(Program, State, Acc, [State|Acc]) :- collision(Program, State).
+unsafe(Program, State, Acc, [State|Acc]) :- collision(Program, State, _).
 
 unsafe(Program, State, Acc, Path) :-
 	\+ member(State, Acc),
@@ -212,14 +219,13 @@ safe(Program) :-
 	initState(Program, In),
 	unsafe2(Program, In, []).
 
-findError(Program, Err2) :-
+findError(Program, error(Err2, Numbers)) :-
 	initState(Program, In),
-	unsafe2(Program, In, [(Err1, St)|_]),
-	write(St),
+	unsafe2(Program, In, [error(Err1, Numbers)|_]),
 	reverse(Err1, Err2).
 
-traverse(Program, State, Stack, Vis, Vis, Un,[(Stack, State)|Un]) :-
-	collision(Program, State),
+traverse(Program, State, Stack, Vis, Vis, Un,[error(Stack, L)|Un]) :-
+	collision(Program, State, L),
 	!. % brzydkie - dodać niżej nie kolizja 
 
 traverse(Program, State, _, Vis, Vis, Un, Un) :-
@@ -248,3 +254,29 @@ traverse(program(V, A, N, P), State, Id, Stack, Vis1, Vis, Un1, Un) :-
 
 findCurrent(state(_, _, Ps), Id, Cur) :-
 	member(Id, Ps, Cur).
+
+verify(N, File) :-
+	open(File, read, F),
+	read(F, vars(Vs)),
+	read(F, arrays(As)),
+	read(F, program(Stmts)),
+	close(F),
+	Program = program(Vs, As, N, Stmts),
+	(safe(Program) ->
+	    write('Program jest poprawny (bezpieczny).')
+	;
+	    findError(Program, error(Inter, [Num1, Num2|_])),
+	    length(Inter, N1),
+	    N2 is N1 + 1,
+	    write(N2),
+	    format('Program jest niepoprawny: stan nr ~d nie jest bezpieczny.', [N2]), nl,
+	    write('Niepoprawny przeplot:'), nl,
+	    writeInterlacing(Inter),
+	    format('Procesy w sekcji: ~d, ~d.', [Num1,Num2])
+	).
+
+writeInterlacing([]).
+writeInterlacing([(Id, Pos)|T]) :-
+	Pos1 is Pos + 1,
+	format('  Proces ~d:   ~d',[Id, Pos1]), nl,
+	writeInterlacing(T).
