@@ -209,31 +209,45 @@ findCollision(Program, N, error(Err2, Numbers)) :-
 	unsafe(Program, N, In, [error(Err1, Numbers)|_]),
 	reverse(Err1, Err2).
 
+% traverse(Program, LiczbaProcesów, Stan, Stos
+% OdwiedzoneStany, NoweOdwiedzoneStany, Kolizje, NoweKolizje) -
+% NoweKolizje i NoweOdwiedzoneStany odpowiadają rekurencyjnemu
+% odwiedzeniu dostępnych stanów z aktualnego stanu. Stos zawiera
+% pary (IdProcesu, NrInstrukcji).
+%
+% Konieczne jest dość nieintuicyjne tworzenie listy kolizji -
+% nawet jeśli dane przejście nie skończy się znalezieniem błędu,
+% to trzeba zapamiętać odwiedzone stany, żeby nie musieć ich już
+% potem przeglądać.
+
+traverse(_, _, State, _, Vis, Vis, Un, Un) :-
+	member(State, Vis), % stan było już odwiedzony
+	!.
+
 traverse(Program, _, State, Stack, Vis, Vis, Un,[error(Stack, L)|Un]) :-
+	\+ member(State, Vis),
 	collision(Program, State, L),
-	!. % brzydkie - dodać niżej nie kolizja 
+	!.
 
-traverse(Program, _, State, _, Vis, Vis, Un, Un) :-
-	% pewnie nieprawda że kolizja - czy dodać?
-	\+ collision(Program, State),
-	member(State, Vis). % ew. odcięcie
-
-traverse(Program, N, State, Stack, Vis1, Vis, Un1, Un) :-
-	\+ collision(Program, State),
+traverse(Program, N, State, Stack, Vis1, Vis2, Un1, Un2) :-
 	\+ member(State, Vis1),
-	traverse(Program, N, State, 0, Stack, [State|Vis1], Vis, Un1, Un).
+	\+ collision(Program, State),
+	% przeglądamy wszystkie możliwe ruchy
+	traverse(Program, N, State, 0, Stack, [State|Vis1], Vis2, Un1, Un2).
 
+%traverse(Program, LiczbaProcesów, Stan, Proces, Stos, Odwiedzone,
+% NodeOdwiedzone, Kolizje, NoweKolizje) == jw. tylko w danym ruchu
+% mogą zostać wykonać instrukcję procesy o identyfikatorze
+% >= Proces.
+traverse(_, N, _, N, _, Vis, Vis, Un, Un) :- !.
 
-
-traverse(_, N, _, N, _, Vis, Vis, Un, Un).
-
-traverse(program(V, A, P), N, State, Id, Stack, Vis1, Vis, Un1, Un) :-
+traverse(Program, N, State, Id, Stack, Vis1, Vis, Un1, Un) :-
 	Id < N,
-	step(program(V, A, P), N, State, Id, Out),
+	step(Program, N, State, Id, Out),
 	findCurrent(State, Id, Cur),
-	traverse(program(V, A, P), N, Out, [(Id, Cur)|Stack], Vis1, Vis2, Un1, Un2),
+	traverse(Program, N, Out, [(Id, Cur)|Stack], Vis1, Vis2, Un1, Un2),
 	Id1 is Id + 1,
-	traverse(program(V, A, P), N, State, Id1, Stack, Vis2, Vis, Un2, Un).
+	traverse(Program, N, State, Id1, Stack, Vis2, Vis, Un2, Un).
 
 % findCurrent(Stan, Proces, Instrukcja) == licznik rozkazów Procesu
 % wskazuje na Instrukcja
@@ -262,6 +276,7 @@ readProgram(File, program(Vs, As, Stmts)) :-
 	read(F, program(Stmts)),
 	close(F).
 
+% Wypisuje pełną informację, gdy program nie jest bezpieczny
 handleCollision(Program, N) :-
 	findCollision(Program, N, error(Inter, [Num1, Num2|_])),
 	length(Inter, N1),
