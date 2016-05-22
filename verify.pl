@@ -19,7 +19,7 @@
 % program(Zmienne, Tablice, N, Cialo)
 
 % initState(Program, StanPoczątkowy).
-initState(program(VarsNames, ArraysNames, N, _), state(Vars, Arrays, Ips)) :-
+initState(program(VarsNames, ArraysNames, _), N, state(Vars, Arrays, Ips)) :-
 	initVars(VarsNames, Vars),
 	initArrays(ArraysNames, N, Arrays),
 	initIps(N, Ips).
@@ -54,7 +54,10 @@ member(N, [_|T], Res) :-
 	N1 is N - 1,
 	member(N1, T, Res).
 
-step(program(_, _, N, S), In, Id, Out) :-
+% step(Program, LiczbaProcesów, StanWe, PrId, StanWy).
+% Zmiana w stosunku do specyfikacji!
+% Liczba procesów potrzebna jest do generowania możliwych PrId.
+step(program(_, _, S), N, In, Id, Out) :-
 	processList(N, PL),
 	member(Id, PL),
 	stepAux(S, In, Id, Out).
@@ -171,10 +174,10 @@ evalBool(E1 <> E2, Vs, As, Id) :-
 
 % Sprawdzanie poprawności
 % collision(Program, Stan) == w stanie 2 procesy są w sekcji krytycznej
-collision(program(_, _, _, Stmts), state(_, _, Ps), L) :-
+collision(program(_, _, Stmts), state(_, _, Ps), L) :-
 	inSection(Ps, Stmts, L),
-	length(L, N),
-	N > 1.
+	length(L, In),
+	In > 1.
 
 collision(Program, State) :- collision(Program, State, _).
 
@@ -194,73 +197,81 @@ inSection([H|T], Stmts, I, Res) :-
 
 % unsafe - istnieje przeplot do złego stanu - nie ma bezpieczeństwa
 % i to jest ścieżka stanów do niego prowadząca (odwrotna)
-unsafe(Program, State, Un) :-
-	traverse(Program, State, [], [], _, [], Un).
+unsafe(Program, N, State, Un) :-
+	traverse(Program, N, State, [], [], _, [], Un).
 
-safe(Program) :-
-	initState(Program, In),
-	unsafe(Program, In, []).
+safe(Program, N) :-
+	initState(Program, N, In),
+	unsafe(Program, N, In, []).
 
-findError(Program, error(Err2, Numbers)) :-
-	initState(Program, In),
-	unsafe(Program, In, [error(Err1, Numbers)|_]),
+findError(Program, N, error(Err2, Numbers)) :-
+	initState(Program, N, In),
+	unsafe(Program, N, In, [error(Err1, Numbers)|_]),
 	reverse(Err1, Err2).
 
-traverse(Program, State, Stack, Vis, Vis, Un,[error(Stack, L)|Un]) :-
+traverse(Program, _, State, Stack, Vis, Vis, Un,[error(Stack, L)|Un]) :-
 	collision(Program, State, L),
 	!. % brzydkie - dodać niżej nie kolizja 
 
-traverse(Program, State, _, Vis, Vis, Un, Un) :-
+traverse(Program, _, State, _, Vis, Vis, Un, Un) :-
 	% pewnie nieprawda że kolizja - czy dodać?
 	\+ collision(Program, State),
 	member(State, Vis). % ew. odcięcie
 
-traverse(program(V, A, N, P), State, Stack, Vis1, Vis, Un1, Un) :-
+traverse(program(V, A, P), N, State, Stack, Vis1, Vis, Un1, Un) :-
 	\+ member(State, Vis1),
-	%step(program(V, A, N, P), State, Id, Out),
-	traverse(program(V, A, N, P), State, 0, Stack, [State|Vis1], Vis, Un1, Un).
-	%Id1 is Id + 1,
-	%traverse(program(V, A, N, P), State, Id1, Vis2, Vis, Un2, Un).
+	traverse(program(V, A, P), N, State, 0, Stack, [State|Vis1], Vis, Un1, Un).
 
 
 
-traverse(program(_, _, N, _), _, N, _, Vis, Vis, Un, Un).
+traverse(_, N, _, N, _, Vis, Vis, Un, Un).
 
-traverse(program(V, A, N, P), State, Id, Stack, Vis1, Vis, Un1, Un) :-
+traverse(program(V, A, P), N, State, Id, Stack, Vis1, Vis, Un1, Un) :-
 	Id < N,
-	step(program(V, A, N, P), State, Id, Out),
+	step(program(V, A, P), N, State, Id, Out),
 	findCurrent(State, Id, Cur),
-	traverse(program(V, A, N, P), Out, [(Id, Cur)|Stack], Vis1, Vis2, Un1, Un2),
+	traverse(program(V, A, P), N, Out, [(Id, Cur)|Stack], Vis1, Vis2, Un1, Un2),
 	Id1 is Id + 1,
-	traverse(program(V, A, N, P), State, Id1, Stack, Vis2, Vis, Un2, Un).
+	traverse(program(V, A, P), N, State, Id1, Stack, Vis2, Vis, Un2, Un).
 
+% findCurrent(Stan, Proces, Instrukcja) == licznik rozkazów Procesu
+% wskazuje na Instrukcja
 findCurrent(state(_, _, Ps), Id, Cur) :-
 	member(Id, Ps, Cur).
 
+% Procedura główna
 verify(N, File) :-
 	(N =< 0 ->
 	    write('Error: parametr 0 powinien byc liczba > 0'), nl, fail
 	; true ),
+	readProgram(File, Program),
+	(safe(Program, N) ->
+	    write('Program jest poprawny (bezpieczny).')
+	;
+	    handleError(Program, N)
+	).
+
+% readProgram(Plik, Program)
+readProgram(File, program(Vs, As, Stmts)) :-
 	catch(open(File, read, F),
 	      _,
 	      (format('Error: brak pliku o nazwie - ~s', [File]), nl, fail)),
 	read(F, vars(Vs)),
 	read(F, arrays(As)),
 	read(F, program(Stmts)),
-	close(F),
-	Program = program(Vs, As, N, Stmts),
-	(safe(Program) ->
-	    write('Program jest poprawny (bezpieczny).')
-	;
-	    findError(Program, error(Inter, [Num1, Num2|_])),
-	    length(Inter, N1),
-	    N2 is N1 + 1,
-	    format('Program jest niepoprawny: stan nr ~d nie jest bezpieczny.', [N2]), nl,
-	    write('Niepoprawny przeplot:'), nl,
-	    writeInterlacing(Inter),
-	    format('Procesy w sekcji: ~d, ~d.', [Num1,Num2])
-	).
+	close(F).
 
+handleCollision(Program, N) :-
+	findError(Program, N, error(Inter, [Num1, Num2|_])),
+	length(Inter, N1),
+	N2 is N1 + 1,
+	format('Program jest niepoprawny: stan nr ~d nie jest bezpieczny.',
+	       [N2]), nl,
+	write('Niepoprawny przeplot:'), nl,
+	writeInterlacing(Inter),
+	format('Procesy w sekcji: ~d, ~d.', [Num1,Num2])
+
+% Wypisuje przeplot
 writeInterlacing([]).
 writeInterlacing([(Id, Pos)|T]) :-
 	Pos1 is Pos + 1,
