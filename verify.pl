@@ -5,20 +5,6 @@
 % Reprezentacja programu:
 % state(lista  val(zmienna, wartość), lista val(nazwa tablicy, lista kolejnych wartości), lista z licznikiem instrukcji)
 
-vars1([k]).
-arrays1([chce]).
-program1([assign(arr(chce, pid), 1), assign(k, pid),
-	 condGoto(arr(chce, 1-pid) = 0, 5),
-	 condGoto(k = pid, 3),
-	 sekcja, assign(arr(chce, pid), 0), goto(1)]).
-
-vars2([x]).
-arrays2([]).
-program2([assign(x, pid), sekcja, goto(1)]).
-
-testProgram(1, program(V, A, 2, P)) :- vars1(V), arrays1(A), program1(P).
-
-testProgram(2, program(V, A, 2, P)) :- vars2(V), arrays2(A), program2(P).
 
 % program(Zmienne, Tablice, N, Cialo)
 
@@ -67,24 +53,32 @@ stepAux(S, state(V1, A1, P1), Id, state(V2, A2, P2)) :-
 	member(Id, P1, Cur1), % która instrukcja dla danego procesu
 	member(Cur1, S, Stmt),
 	stepSingle(Stmt, Id, singleState(V1, A1, Cur1), singleState(V2, A2, Cur2)),
-	setPointer(Id, P1, Cur2, P2).
+	setCell(Id, P1, Cur2, P2).
 
-% TODO: rename
-setPointer(0, [_|T], New, [New|T]). % ew. odcięcie
-setPointer(Id1, [H|T1], New, [H|T2]) :-
+% setCell(Indeks, StaraLista, Wartość, NowaTablica) ==
+% w NowaTablicy na indeksie Indeks stoi Wartość, reszta
+% indeksów jest niezmieniona (numerujemy od 0)
+setCell(0, [_|T], New, [New|T]) :- !.
+setCell(Id1, [H|T1], New, [H|T2]) :-
 	Id1 > 0,
 	Id2 is Id1 - 1,
-	setPointer(Id2, T1, New, T2).
+	setCell(Id2, T1, New, T2).
 
-setVariable([val(X, _)|T], X, N, [val(X, N)|T]). % ew. odcięcie
+% setVariable(Lista, Zmienna, Wartość, NowaLista) ==
+% W NowaLista zmiennej Zmienna przypisana jest wartość
+% Wartość, reszta zmiennych i ich wartości się nie różni
+setVariable([val(X, _)|T], X, N, [val(X, N)|T]) :- !.
 setVariable([val(Y, V)|T1], X, N, [val(X, V)|T2]) :-
 	X \= Y,
 	setVariable(T1, X, N, T2).
 
-% setArrayCell(StaraListaTablic, NazwaTablicy, Indeks, NowaWartość, NowaListaTablic).
+% setArrayCell(StaraListaTablic, NazwaTablicy, Indeks,
+% Wartość, NowaListaTablic) == NowaListaTablic różni
+% się od StaraListaTablic tym, że w tablicy NazwaTablicy
+% na indeksie Indeks jest wartość Wartość
 setArrayCell([val(X, Arr)|T], X, I, N, [val(X, NewArray)|T]) :-
 	% ew. odcięcie
-	setPointer(I, Arr, N, NewArray). 
+	setCell(I, Arr, N, NewArray). 
 setArrayCell([val(Y, V)|T1], X, I, N, [val(X, V)|T2]) :-
 	X \= Y,
 	setArrayCell(T1, X, I, N, T2).
@@ -193,35 +187,16 @@ inSection([H|T], Stmts, I, Res) :-
 
 % unsafe - istnieje przeplot do złego stanu - nie ma bezpieczeństwa
 % i to jest ścieżka stanów do niego prowadząca (odwrotna)
-unsafe(Program, State, Path) :- unsafe(Program, State, [], Path).
-
-unsafe(Program, State, Acc, [State|Acc]) :- collision(Program, State, _).
-
-unsafe(Program, State, Acc, Path) :-
-	\+ member(State, Acc),
-	%length(Acc, N),
-	write(State),
-	format("~n",[]),
-	%write(N),
-	%format("~n",[]),
-	step(Program, State, _, Out),
-	unsafe(Program, Out, [State|Acc], Path).
-
-% zbyt naiwne - nie działa
-unsafe0(Program, Path) :-
-	initState(Program, In),
-	unsafe(Program, In, Path).
-
-unsafe2(Program, State, Un) :-
+unsafe(Program, State, Un) :-
 	traverse(Program, State, [], [], _, [], Un).
 
 safe(Program) :-
 	initState(Program, In),
-	unsafe2(Program, In, []).
+	unsafe(Program, In, []).
 
 findError(Program, error(Err2, Numbers)) :-
 	initState(Program, In),
-	unsafe2(Program, In, [error(Err1, Numbers)|_]),
+	unsafe(Program, In, [error(Err1, Numbers)|_]),
 	reverse(Err1, Err2).
 
 traverse(Program, State, Stack, Vis, Vis, Un,[error(Stack, L)|Un]) :-
@@ -273,7 +248,6 @@ verify(N, File) :-
 	    findError(Program, error(Inter, [Num1, Num2|_])),
 	    length(Inter, N1),
 	    N2 is N1 + 1,
-	    write(N2),
 	    format('Program jest niepoprawny: stan nr ~d nie jest bezpieczny.', [N2]), nl,
 	    write('Niepoprawny przeplot:'), nl,
 	    writeInterlacing(Inter),
