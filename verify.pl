@@ -204,7 +204,7 @@ safe(Program, N) :-
 	initState(Program, N, In),
 	unsafe(Program, N, In, []).
 
-findError(Program, N, error(Err2, Numbers)) :-
+findCollision(Program, N, error(Err2, Numbers)) :-
 	initState(Program, N, In),
 	unsafe(Program, N, In, [error(Err1, Numbers)|_]),
 	reverse(Err1, Err2).
@@ -218,9 +218,10 @@ traverse(Program, _, State, _, Vis, Vis, Un, Un) :-
 	\+ collision(Program, State),
 	member(State, Vis). % ew. odcięcie
 
-traverse(program(V, A, P), N, State, Stack, Vis1, Vis, Un1, Un) :-
+traverse(Program, N, State, Stack, Vis1, Vis, Un1, Un) :-
+	\+ collision(Program, State),
 	\+ member(State, Vis1),
-	traverse(program(V, A, P), N, State, 0, Stack, [State|Vis1], Vis, Un1, Un).
+	traverse(Program, N, State, 0, Stack, [State|Vis1], Vis, Un1, Un).
 
 
 
@@ -248,7 +249,7 @@ verify(N, File) :-
 	(safe(Program, N) ->
 	    write('Program jest poprawny (bezpieczny).')
 	;
-	    handleError(Program, N)
+	    handleCollision(Program, N)
 	).
 
 % readProgram(Plik, Program)
@@ -262,14 +263,14 @@ readProgram(File, program(Vs, As, Stmts)) :-
 	close(F).
 
 handleCollision(Program, N) :-
-	findError(Program, N, error(Inter, [Num1, Num2|_])),
+	findCollision(Program, N, error(Inter, [Num1, Num2|_])),
 	length(Inter, N1),
 	N2 is N1 + 1,
 	format('Program jest niepoprawny: stan nr ~d nie jest bezpieczny.',
 	       [N2]), nl,
 	write('Niepoprawny przeplot:'), nl,
 	writeInterlacing(Inter),
-	format('Procesy w sekcji: ~d, ~d.', [Num1,Num2])
+	format('Procesy w sekcji: ~d, ~d.', [Num1,Num2]).
 
 % Wypisuje przeplot
 writeInterlacing([]).
