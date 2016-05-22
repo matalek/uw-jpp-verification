@@ -1,10 +1,20 @@
 % Aleksander Matusiak
 
 :- ensure_loaded(library(lists)).
+:- op(700, xfx, <>). % konieczna definicja operatora różności
 
 % Reprezentacja programu:
-% state(lista  val(zmienna, wartość), lista val(nazwa tablicy, lista kolejnych wartości), lista z licznikiem instrukcji)
 
+% state(ZmienneProste, Tablice, LicznikiRozkazu) -
+% reprezentacja stanu systemu
+% ZmienneProste = [val(Zmienna, Wartość)],
+% Tablice = [val(NazwaTablicy, [Wartości])],
+% LicznikiRozkazu = [LicznikRozkazu] (lista liczb całkowitych,
+% numeracja instrukcji od 0 (inaczej niż w opisie)
+
+% singleState(ZmienneProste, Tablice, LicznikRozkazu) - odpowiada
+% stanowi pojedynczego procesu - zawiera globalne zmienne i tablice,
+% ale tylko licznik rozkazu pojedynczego procesu
 
 % program(Zmienne, Tablice, N, Cialo)
 
@@ -77,31 +87,35 @@ setVariable([val(Y, V)|T1], X, N, [val(X, V)|T2]) :-
 % się od StaraListaTablic tym, że w tablicy NazwaTablicy
 % na indeksie Indeks jest wartość Wartość
 setArrayCell([val(X, Arr)|T], X, I, N, [val(X, NewArray)|T]) :-
-	% ew. odcięcie
+	!,
 	setCell(I, Arr, N, NewArray). 
 setArrayCell([val(Y, V)|T1], X, I, N, [val(X, V)|T2]) :-
 	X \= Y,
 	setArrayCell(T1, X, I, N, T2).
 
-% pojedyncze kroki dla poszczególnych instrukcji
-
-stepSingle(assign(X, Exp), Id, singleState(V1, A1, P1), singleState(V2, A1, P2)) :-
-	member(val(X, _), V1), % do zastanowienia się, ew. różne od arr
+% stepSingle(Insrukcja, Proces, StanPojedynczyPoczątkowy,
+% StanPojednczyKońcowy) == StanPojedynczyKońcowy odpowiada wykonaniu
+% Instrukcji przez Proces w StanPojedynczyPoczątkowy
+stepSingle(assign(X, Exp), Id,
+	   singleState(V1, A1, P1), singleState(V2, A1, P2)) :-
+	X \= arr(_, _),
 	eval(Exp, V1, A1, Id,  N),
 	setVariable(V1, X, N, V2),
 	P2 is P1 + 1.
 
-stepSingle(assign(arr(X, Exp1), Exp2), Id, singleState(V1, A1, P1), singleState(V1, A2, P2)) :-
+stepSingle(assign(arr(X, Exp1), Exp2), Id,
+	   singleState(V1, A1, P1), singleState(V1, A2, P2)) :-
 	eval(Exp1, V1, A1, Id, I),
 	eval(Exp2, V1, A1, Id, N),
 	setArrayCell(A1, X, I, N, A2),
 	P2 is P1 + 1.
 
-stepSingle(goto(In1), _, singleState(V, A, _), singleState(V, A, In)) :-
-	In is In1 - 1.
+stepSingle(goto(In1), _,
+	   singleState(V, A, _), singleState(V, A, In)) :-
+	In is In1 - 1. % w reprezentacji stanu instrukcje od 0
 
-% TODO: może rozbić na 2 formuły z negacją (ale co, gdy coś nieustalone?)
-stepSingle(condGoto(BExp, In1), Id, singleState(V, A, P1), singleState(V, A, P2)) :-
+stepSingle(condGoto(BExp, In1), Id,
+	   singleState(V, A, P1), singleState(V, A, P2)) :-
 	In is In1 - 1,
 	(evalBool(BExp, V, A, Id) ->
 	    P2 = In;
@@ -111,18 +125,19 @@ stepSingle(condGoto(BExp, In1), Id, singleState(V, A, P1), singleState(V, A, P2)
 stepSingle(sekcja, _, singleState(V, A, P1), singleState(V, A, P2)) :-
 	P2 is P1 + 1.
 
-% eval(Wyrażenie, Zmienne, Tablice, NumerProcesu, Wartość).
-% TODO: przemyśleć odcięcia
-eval(N, _, _, _, N) :- integer(N).
-eval(pid, _, _, Id, Id).
+% eval(Wyrażenie, Zmienne, Tablice, NumerProcesu, WartośćWyrażenia).
+eval(N, _, _, _, N) :- integer(N), !.
+eval(pid, _, _, Id, Id) :- !.
 eval(arr(V, Exp), Vs, As, Id, N) :-
+	!,
 	member(val(V, Arr), As),
 	eval(Exp, Vs, As, Id, I),
 	member(I, Arr, N).
+% TODO: może poniższe można trochę ładniej
 eval(V, Vs, _, _, N) :-
+	V \= arr(_, _),
 	member(val(V, N), Vs). 
 
-% TODO: czy da się ładniej?
 eval(E1 + E2, Vs, As, Id, N) :-
 	eval(E1, E2, Vs, As, Id, N1, N2),
 	N is N1 + N2.
@@ -136,31 +151,23 @@ eval(E1 / E2, Vs, As, Id, N) :-
 	eval(E1, E2, Vs, As, Id, N1, N2),
 	N is N1 / N2.
 
-% pomocnicze dla 2 wyrażeń
+% eval(Wyrażenie1, Wyrażenie2, ZmienneProste, Tablie,
+% Proces, WartośćWyrażenia1, WartośćWyrażenia2).
 eval(E1, E2, Vs, As, Id, N1, N2) :-
 	eval(E1, Vs, As, Id, N1),
 	eval(E2, Vs, As, Id, N2).
 
-:- op(700, xfx, <>).
-
+% evalBool(WyrażenieBoolowskie, Zmienne, Tablice, Proces) ==
+% WyrażenieBoolowskie jest prawdziwe przy danym wartościowaniu
 evalBool(E1 < E2, Vs, As, Id) :-
 	eval(E1, E2, Vs, As, Id, N1, N2),
 	N1 < N2.
-
 evalBool(E1 = E2, Vs, As, Id) :-
 	eval(E1, E2, Vs, As, Id, N1, N2),
 	N1 =:= N2.
-
 evalBool(E1 <> E2, Vs, As, Id) :-
 	eval(E1, E2, Vs, As, Id, N1, N2),
 	N1 =\= N2.
-
-% pomocne w testowaniu
-exampleState(I, P, In) :- testProgram(I, P), initState(P, In).
-
-testStep(Id, Out) :- exampleState(P, In),
-	step(P, In, Id, Out). 
-	
 
 % Sprawdzanie poprawności
 % collision(Program, Stan) == w stanie 2 procesy są w sekcji krytycznej
