@@ -16,7 +16,7 @@
 % stanowi pojedynczego procesu - zawiera globalne zmienne i tablice,
 % ale tylko licznik rozkazu pojedynczego procesu
 
-% program(Zmienne, Tablice, N, Cialo)
+% program(Zmienne, Tablice, Cialo)
 
 % initState(Program, StanPoczątkowy).
 initState(program(VarsNames, ArraysNames, _), N, state(Vars, Arrays, Ips)) :-
@@ -204,9 +204,9 @@ safe(Program, N) :-
 	initState(Program, N, In),
 	unsafe(Program, N, In, []).
 
-findCollision(Program, N, error(Err2, Numbers)) :-
+findCollision(Program, N, error(Err2, Numbers, StateNumber)) :-
 	initState(Program, N, In),
-	unsafe(Program, N, In, [error(Err1, Numbers)|_]),
+	unsafe(Program, N, In, [error(Err1, Numbers, StateNumber)|_]),
 	reverse(Err1, Err2).
 
 % traverse(Program, LiczbaProcesów, Stan, Stos
@@ -224,10 +224,13 @@ traverse(_, _, State, _, Vis, Vis, Un, Un) :-
 	member(State, Vis), % stan było już odwiedzony
 	!.
 
-traverse(Program, _, State, Stack, Vis, Vis, Un,[error(Stack, L)|Un]) :-
+traverse(Program, _, State, Stack, Vis, Vis, Un,
+	 [error(Stack, L, StateNumber)|Un]) :-
 	\+ member(State, Vis),
 	collision(Program, State, L),
-	!.
+	!,
+	length(Vis, VisLength),
+	StateNumber is VisLength + 1.
 
 traverse(Program, N, State, Stack, Vis1, Vis2, Un1, Un2) :-
 	\+ member(State, Vis1),
@@ -278,11 +281,9 @@ readProgram(File, program(Vs, As, Stmts)) :-
 
 % Wypisuje pełną informację, gdy program nie jest bezpieczny
 handleCollision(Program, N) :-
-	findCollision(Program, N, error(Inter, [Num1, Num2|_])),
-	length(Inter, N1),
-	N2 is N1 + 1,
+	findCollision(Program, N, error(Inter, [Num1, Num2|_], StateNumber)),
 	format('Program jest niepoprawny: stan nr ~d nie jest bezpieczny.',
-	       [N2]), nl,
+	       [StateNumber]), nl,
 	write('Niepoprawny przeplot:'), nl,
 	writeInterlacing(Inter),
 	format('Procesy w sekcji: ~d, ~d.', [Num1,Num2]).
