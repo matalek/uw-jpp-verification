@@ -271,13 +271,17 @@ verify(N, File) :-
 
 % readProgram(Plik, Program)
 readProgram(File, program(Vs, As, Stmts)) :-
-	catch(open(File, read, F),
-	      _,
-	      (format('Error: brak pliku o nazwie - ~s', [File]), nl, fail)),
-	read(F, vars(Vs)),
-	read(F, arrays(As)),
-	read(F, program(Stmts)),
-	close(F).
+	set_prolog_flag(fileerrors, off),
+	see(File),
+	!, % czerwone odcięcie
+	read(vars(Vs)),
+	read(arrays(As)),
+	read(program(Stmts)),
+	seen.
+
+readProgram(File, _) :-
+	format('Error: brak pliku o nazwie - ~s', [File]),nl,
+	fail. % wywołanie kończy się błędem
 
 % Wypisuje pełną informację, gdy program nie jest bezpieczny
 handleCollision(Program, N) :-
