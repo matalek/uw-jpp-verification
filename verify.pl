@@ -195,15 +195,14 @@ inSection([H|T], Stmts, I, Res) :-
 	I1 is I + 1,
 	inSection(T, Stmts, I1, L).
 
-% unsafe - istnieje przeplot do złego stanu - nie ma bezpieczeństwa
-% i to jest ścieżka stanów do niego prowadząca (odwrotna)
-% check(Program, LiczbaProcesów, StanPoczątkowy, Wynik),
+% check(Program, LiczbaProcesów, StanPoczątkowy, Wynik-),
 % gdzie Wynik będzie zmienną, jeśli nie udało się znaleźć kolizji,
 % będzie zaś termem postaci error(_, _, _), jeśli ta kolizja istnieje
 % (i ten term będzie odpowiadał kolizji).
 check(Program, N, In, Un) :-
-	traverse(Program, N, In, [], [], _, _, Un).
+	traverse(Program, N, In, [], [], _, Un).
 
+% safe(Program, N) == Program jest bezpieczny dla N procesów
 safe(Program, N) :-
 	initState(Program, N, In),
 	check(Program, N, In, Un),
@@ -213,22 +212,24 @@ safe(Program, N) :-
 % Kolizja = error(Przeplot, NumeryProcesówSekcji, NumerNiebezpiecznegoStanu).
 findCollision(Program, N, error(Err2, Numbers, StateNumber)) :-
 	initState(Program, N, In),
-	check(Program, N, In, error(Err1, Numbers, StateNumber)),
+	check(Program, N, In, Un), % trzeci argument musi być zmienną
+	Un = error(Err1, Numbers, StateNumber),
 	reverse(Err1, Err2).
 
 % traverse(Program, LiczbaProcesów, Stan, Stos
-% OdwiedzoneStany, NoweOdwiedzoneStany, Kolizje, NoweKolizje) -
-% NoweKolizje i NoweOdwiedzoneStany odpowiadają rekurencyjnemu
+% OdwiedzoneStany, NoweOdwiedzoneStany-, Wynik-) -
+% NoweOdwiedzoneStany odpowiadają rekurencyjnemu
 % odwiedzeniu dostępnych stanów z aktualnego stanu. Stos zawiera
 % pary (IdProcesu, NrInstrukcji).
-%
-% 
+% Jeśli nie została znaleziona kolizja, to Wynik jest zmienną,
+% w przeciwnym przypadku zawiera on informacje o kolizji
+% (error(_, _, _)).
 
-traverse(_, _, State, _, Vis, Vis, Un, Un) :-
+traverse(_, _, State, _, Vis, Vis, _) :-
 	member(State, Vis), % stan było już odwiedzony
 	!.
 
-traverse(Program, _, State, Stack, Vis, Vis, _, 
+traverse(Program, _, State, Stack, Vis, Vis,
 	 error(Stack, L, StateNumber)) :-
 	\+ member(State, Vis),
 	collision(Program, State, L),
@@ -236,28 +237,28 @@ traverse(Program, _, State, Stack, Vis, Vis, _,
 	length(Vis, VisLength),
 	StateNumber is VisLength + 1.
 
-traverse(Program, N, State, Stack, Vis1, Vis2, Un1, Un2) :-
+traverse(Program, N, State, Stack, Vis1, Vis2, Un) :-
 	\+ member(State, Vis1),
 	\+ collision(Program, State),
 	% przeglądamy wszystkie możliwe ruchy
-	traverse(Program, N, State, 0, Stack, [State|Vis1], Vis2, Un1, Un2).
+	traverse(Program, N, State, 0, Stack, [State|Vis1], Vis2, Un).
 
 %traverse(Program, LiczbaProcesów, Stan, Proces, Stos, Odwiedzone,
 % NodeOdwiedzone, Kolizje, NoweKolizje) == jw. tylko w danym ruchu
 % mogą zostać wykonać instrukcję procesy o identyfikatorze
 % >= Proces.
-traverse(_, N, _, N, _, Vis, Vis, Un, Un) :- !.
+traverse(_, N, _, N, _, Vis, Vis, _) :- !.
 
-traverse(Program, N, State, Id, Stack, Vis1, Vis, Un1, Un) :-
+traverse(Program, N, State, Id, Stack, Vis1, Vis, Un) :-
 	Id < N,
 	step(Program, N, State, Id, Out),
 	findCurrent(State, Id, Cur),
-	traverse(Program, N, Out, [(Id, Cur)|Stack], Vis1, Vis2, Un1, Un2),
+	traverse(Program, N, Out, [(Id, Cur)|Stack], Vis1, Vis2, Un),
 	Id1 is Id + 1,
-	(var(Un2) -> 
-	    traverse(Program, N, State, Id1, Stack, Vis2, Vis, Un2, Un)
+	(var(Un) -> 
+	    traverse(Program, N, State, Id1, Stack, Vis2, Vis, Un)
 	; % kolizja została już znaleziona
-	    Un = Un2
+	    true
 	).
 
 % findCurrent(Stan, Proces, Instrukcja) == licznik rozkazów Procesu
