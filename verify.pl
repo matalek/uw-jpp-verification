@@ -195,7 +195,7 @@ inSection([H|T], Stmts, I, Res) :-
 	I1 is I + 1,
 	inSection(T, Stmts, I1, L).
 
-% check(Program, LiczbaProcesów, StanPoczątkowy, Wynik-),
+% check(+Program, +LiczbaProcesów, +StanPoczątkowy, -Wynik),
 % gdzie Wynik będzie zmienną, jeśli nie udało się znaleźć kolizji,
 % będzie zaś termem postaci error(_, _, _), jeśli ta kolizja istnieje
 % (i ten term będzie odpowiadał kolizji).
@@ -216,8 +216,8 @@ findCollision(Program, N, error(Err2, Numbers, StateNumber)) :-
 	Un = error(Err1, Numbers, StateNumber),
 	reverse(Err1, Err2).
 
-% traverse(Program, LiczbaProcesów, Stan, Stos
-% OdwiedzoneStany, NoweOdwiedzoneStany-, Wynik-) -
+% traverse(+Program, +LiczbaProcesów, Stan, +Stos
+% +OdwiedzoneStany, -NoweOdwiedzoneStany, -Wynik ) -
 % NoweOdwiedzoneStany odpowiadają rekurencyjnemu
 % odwiedzeniu dostępnych stanów z aktualnego stanu. Stos zawiera
 % pary (IdProcesu, NrInstrukcji).
