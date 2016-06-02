@@ -1,4 +1,5 @@
 % Aleksander Matusiak
+% JPP 2016 - zadanie zaliczeniowe 3. (Prolog)
 
 :- ensure_loaded(library(lists)).
 :- op(700, xfx, <>). % konieczna definicja operatora różności
@@ -10,7 +11,7 @@
 % ZmienneProste = [val(Zmienna, Wartość)],
 % Tablice = [val(NazwaTablicy, [Wartości])],
 % LicznikiRozkazu = [LicznikRozkazu] (lista liczb całkowitych,
-% numeracja instrukcji od 0 (inaczej niż w opisie)
+% numeracja instrukcji od 0 (inaczej niż w opisie))
 
 % singleState(ZmienneProste, Tablice, LicznikRozkazu) - odpowiada
 % stanowi pojedynczego procesu - zawiera globalne zmienne i tablice,
@@ -22,55 +23,62 @@
 initState(program(VarsNames, ArraysNames, _), N, state(Vars, Arrays, Ips)) :-
 	initVars(VarsNames, Vars),
 	initArrays(ArraysNames, N, Arrays),
-	initIps(N, Ips).
+	initArray(N, Ips).
 
+% initVars(ListaNazwZmiennych, ZmienneZainicjowaneZerem).
 initVars([], []).
 initVars([V|T1], [val(V, 0)|T2]) :-
 		initVars(T1, T2).
 
+% initArrays(ListaNazwTablic, RozmiarTablicy, ListaTablic).
 initArrays([], _, []).
 initArrays([V|T1], N, [val(V, Arr)|T2]) :-
 	initArray(N, Arr),
 	initArrays(T1, N, T2).
 
+% initArray(Rozmiar, Lista) == Lista ma długość Rozmiar i jest
+% wypełniona zerami.
 initArray(0, []).
 initArray(N, [0|T]) :-
 	N > 0,
 	N1 is N - 1,
 	initArray(N1, T).
 
-initIps(N, Ips) :- initArray(N, Ips).
-
+% processList(LiczbaProcesów, ListaKolejnychProcesów).
 processList(0, []).
 processList(N, [N1|T]) :-
 	N > 0,
 	N1 is N - 1,
 	processList(N1, T).
 
-% member(Indeks, Tablica, Wartość).
-member(0, [H|_], H). % ew. odcięcie
+% member(Indeks, Tablica, Wartość) == Wartość jest na indeksie Indeks w Tablica
+% (indeksy od 0)
+member(0, [H|_], H) :- !.
 member(N, [_|T], Res) :-
 	N > 0,
 	N1 is N - 1,
 	member(N1, T, Res).
 
 % step(Program, LiczbaProcesów, StanWe, PrId, StanWy).
-% Zmiana w stosunku do specyfikacji!
+% Zmiana w stosunku do specyfikacji - dodanie liczby procesów!
 % Liczba procesów potrzebna jest do generowania możliwych PrId.
 step(program(_, _, S), N, In, Id, Out) :-
 	processList(N, PL),
-	member(Id, PL),
+	member(Id, PL), % id procesu musi być w zakresie
 	stepAux(S, In, Id, Out).
 
+% stepAux(+Instrukcje, +StanWe, +PrId, StanWy).
 stepAux(S, state(V1, A1, P1), Id, state(V2, A2, P2)) :-
 	member(Id, P1, Cur1), % która instrukcja dla danego procesu
 	member(Cur1, S, Stmt),
-	stepSingle(Stmt, Id, singleState(V1, A1, Cur1), singleState(V2, A2, Cur2)),
+	stepSingle(Stmt, Id,
+		   singleState(V1, A1, Cur1),
+		   singleState(V2, A2, Cur2)),
 	setCell(Id, P1, Cur2, P2).
 
 % setCell(Indeks, StaraLista, Wartość, NowaTablica) ==
 % w NowaTablicy na indeksie Indeks stoi Wartość, reszta
-% indeksów jest niezmieniona (numerujemy od 0)
+% wartości jest niezmieniona (numerujemy od 0)
 setCell(0, [_|T], New, [New|T]) :- !.
 setCell(Id1, [H|T1], New, [H|T2]) :-
 	Id1 > 0,
@@ -136,9 +144,8 @@ eval(arr(V, Exp), Vs, As, Id, N) :-
 	member(val(V, Arr), As),
 	eval(Exp, Vs, As, Id, I),
 	member(I, Arr, N).
-% TODO: może poniższe można trochę ładniej
 eval(V, Vs, _, _, N) :-
-	V \= arr(_, _),
+	atom(V),
 	member(val(V, N), Vs). 
 
 eval(E1 + E2, Vs, As, Id, N) :-
