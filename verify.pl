@@ -100,7 +100,7 @@ setVariable([val(Y, V)|T1], X, N, [val(X, V)|T2]) :-
 setArrayCell([val(X, Arr)|T], X, I, N, [val(X, NewArray)|T]) :-
 	!,
 	setCell(I, Arr, N, NewArray). 
-setArrayCell([val(Y, V)|T1], X, I, N, [val(X, V)|T2]) :-
+setArrayCell([val(Y, V)|T1], X, I, N, [val(Y, V)|T2]) :-
 	X \= Y,
 	setArrayCell(T1, X, I, N, T2).
 
