@@ -202,19 +202,12 @@ inSection([H|T], Stmts, I, Res) :-
 check(Program, N, In, Un) :-
 	traverse(Program, N, In, [], [], _, Un).
 
-% safe(Program, N) == Program jest bezpieczny dla N procesów
-safe(Program, N) :-
+% verify(+Program, +N, -Un) == jeśli wynikowe Un jest zmienną, to Program jest
+% bezpieczny dla N procesów. Wpp. znaleziono kolizję i
+% Un =  error(Przeplot, NumeryProcesówSekcji, NumerNiebezpiecznegoStanu).
+verify(Program, N, Un) :-
 	initState(Program, N, In),
-	check(Program, N, In, Un),
-	var(Un).
-
-% findCollision(Program, LiczbaProcesów, Kolizja), gdzie
-% Kolizja = error(Przeplot, NumeryProcesówSekcji, NumerNiebezpiecznegoStanu).
-findCollision(Program, N, error(Err2, Numbers, StateNumber)) :-
-	initState(Program, N, In),
-	check(Program, N, In, Un), % trzeci argument musi być zmienną
-	Un = error(Err1, Numbers, StateNumber),
-	reverse(Err1, Err2).
+	check(Program, N, In, Un).
 
 % traverse(+Program, +LiczbaProcesów, Stan, +Stos
 % +OdwiedzoneStany, -NoweOdwiedzoneStany, -Wynik ) -
@@ -272,10 +265,11 @@ verify(N, File) :-
 	    write('Error: parametr 0 powinien byc liczba > 0'), nl, fail
 	; true ),
 	readProgram(File, Program),
-	(safe(Program, N) ->
+	verify(Program, N, Res),
+	(var(Res) ->
 	    write('Program jest poprawny (bezpieczny).')
 	;
-	    handleCollision(Program, N)
+	    handleCollision(Res)
 	).
 
 % readProgram(Plik, Program)
@@ -293,8 +287,7 @@ readProgram(File, _) :-
 	fail. % wywołanie kończy się błędem
 
 % Wypisuje pełną informację, gdy program nie jest bezpieczny
-handleCollision(Program, N) :-
-	findCollision(Program, N, error(Inter, [Num1, Num2|_], StateNumber)),
+handleCollision(error(Inter, [Num1, Num2|_], StateNumber)) :-
 	format('Program jest niepoprawny: stan nr ~d nie jest bezpieczny.',
 	       [StateNumber]), nl,
 	write('Niepoprawny przeplot:'), nl,
