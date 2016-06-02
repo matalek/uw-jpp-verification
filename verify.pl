@@ -110,6 +110,7 @@ setArrayCell([val(Y, V)|T1], X, I, N, [val(Y, V)|T2]) :-
 stepSingle(assign(X, Exp), Id,
 	   singleState(V1, A1, P1), singleState(V2, A1, P2)) :-
 	atom(X),
+	!,
 	eval(Exp, V1, A1, Id,  N),
 	setVariable(V1, X, N, V2),
 	P2 is P1 + 1.
@@ -146,6 +147,7 @@ eval(arr(V, Exp), Vs, As, Id, N) :-
 	member(I, Arr, N).
 eval(V, Vs, _, _, N) :-
 	atom(V),
+	V \= pid,
 	member(val(V, N), Vs). 
 
 eval(E1 + E2, Vs, As, Id, N) :-
