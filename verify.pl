@@ -101,7 +101,7 @@ setArrayCell([val(Y, V)|T1], X, I, N, [val(X, V)|T2]) :-
 % Instrukcji przez Proces w StanPojedynczyPoczątkowy
 stepSingle(assign(X, Exp), Id,
 	   singleState(V1, A1, P1), singleState(V2, A1, P2)) :-
-	X \= arr(_, _),
+	atom(X),
 	eval(Exp, V1, A1, Id,  N),
 	setVariable(V1, X, N, V2),
 	P2 is P1 + 1.
