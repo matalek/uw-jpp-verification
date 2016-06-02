@@ -182,19 +182,21 @@ evalBool(E1 <> E2, Vs, As, Id) :-
 	N1 =\= N2.
 
 % Sprawdzanie poprawności
-% collision(Program, Stan) == w stanie 2 procesy są w sekcji krytycznej
+% collision(Program, Stan) == w stanie co najmniej 2 procesy są
+% w sekcji krytycznej, L to lista tych procesów)
 collision(program(_, _, Stmts), state(_, _, Ps), L) :-
 	inSection(Ps, Stmts, L),
 	length(L, In),
 	In > 1.
 
+% collision(Program, Stan) == w stanie co najmniej 2 procesy są
+% w sekcji krytycznej
 collision(Program, State) :- collision(Program, State, _).
-
 
 % inSection(ListaLiczników, TreśćProgramu, ListaProcesówWSekcji).
 inSection(Ps, Stmts, In) :- inSection(Ps, Stmts, 0, In).
 
-
+% inSection(ListaLiczników, TreśćProgramu, Proces, ListaProcWSekcji).
 inSection([], _, _, []).
 inSection([H|T], Stmts, I, Res) :-
 	(member(H, Stmts, sekcja) ->
@@ -204,12 +206,6 @@ inSection([H|T], Stmts, I, Res) :-
 	I1 is I + 1,
 	inSection(T, Stmts, I1, L).
 
-% check(+Program, +LiczbaProcesów, +StanPoczątkowy, -Wynik),
-% gdzie Wynik będzie zmienną, jeśli nie udało się znaleźć kolizji,
-% będzie zaś termem postaci error(_, _, _), jeśli ta kolizja istnieje
-% (i ten term będzie odpowiadał kolizji).
-check(Program, N, In, Un) :-
-	traverse(Program, N, In, [], [], _, Un).
 
 % verify(+Program, +N, -Un) == jeśli wynikowe Un jest zmienną, to Program jest
 % bezpieczny dla N procesów. Wpp. znaleziono kolizję i
@@ -217,6 +213,13 @@ check(Program, N, In, Un) :-
 verify(Program, N, Un) :-
 	initState(Program, N, In),
 	check(Program, N, In, Un).
+
+% check(+Program, +LiczbaProcesów, +StanPoczątkowy, -Wynik),
+% gdzie Wynik będzie zmienną, jeśli nie udało się znaleźć kolizji,
+% będzie zaś termem postaci error(_, _, _), jeśli ta kolizja istnieje
+% (i ten term będzie odpowiadał kolizji).
+check(Program, N, In, Un) :-
+	traverse(Program, N, In, [], [], _, Un).
 
 % traverse(+Program, +LiczbaProcesów, Stan, +Stos
 % +OdwiedzoneStany, -NoweOdwiedzoneStany, -Wynik ) -
@@ -242,11 +245,11 @@ traverse(Program, _, State, Stack, Vis, Vis,
 traverse(Program, N, State, Stack, Vis1, Vis2, Un) :-
 	\+ member(State, Vis1),
 	\+ collision(Program, State),
-	% przeglądamy wszystkie możliwe ruchy
+	% przeglądamy wszystkie możliwe ruchy - DFS
 	traverse(Program, N, State, 0, Stack, [State|Vis1], Vis2, Un).
 
 %traverse(Program, LiczbaProcesów, Stan, Proces, Stos, Odwiedzone,
-% NodeOdwiedzone, Kolizje, NoweKolizje) == jw. tylko w danym ruchu
+% NoweOdwiedzone, Kolizje, NoweKolizje) == jw. tylko w danym ruchu
 % mogą zostać wykonać instrukcję procesy o identyfikatorze
 % >= Proces.
 traverse(_, N, _, N, _, Vis, Vis, _) :- !.
@@ -257,7 +260,8 @@ traverse(Program, N, State, Id, Stack, Vis1, Vis, Un) :-
 	findCurrent(State, Id, Cur),
 	traverse(Program, N, Out, [(Id, Cur)|Stack], Vis1, Vis2, Un),
 	Id1 is Id + 1,
-	(var(Un) -> 
+	(var(Un) ->
+	    % przeglądamy dalsze krawędzie
 	    traverse(Program, N, State, Id1, Stack, Vis2, Vis, Un)
 	; % kolizja została już znaleziona
 	    true
@@ -270,6 +274,9 @@ findCurrent(state(_, _, Ps), Id, Cur) :-
 
 % Procedura główna
 verify(N, File) :-
+	(\+ integer(N) ->
+	    write('Error: parametr 0 powinien byc liczba'), nl, fail
+	; true ),
 	(N =< 0 ->
 	    write('Error: parametr 0 powinien byc liczba > 0'), nl, fail
 	; true ),
