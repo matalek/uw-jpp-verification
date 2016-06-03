@@ -215,7 +215,7 @@ verify(Program, N, Un) :-
 	initState(Program, N, In),
 	traverse(Program, N, In, [], [], _, Un).
 
-% traverse(+Program, +LiczbaProcesów, Stan, +Stos
+% traverse(+Program, +LiczbaProcesów, +Stan, +Stos
 % +OdwiedzoneStany, -NoweOdwiedzoneStany, -Wynik ) -
 % NoweOdwiedzoneStany odpowiadają rekurencyjnemu
 % odwiedzeniu dostępnych stanów z aktualnego stanu. Stos zawiera
