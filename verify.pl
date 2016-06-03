@@ -19,7 +19,7 @@
 
 % program(Zmienne, Tablice, Cialo)
 
-% initState(Program, StanPoczątkowy).
+% initState(Program, LiczbaProcesów, StanPoczątkowy).
 initState(program(VarsNames, ArraysNames, _), N, state(Vars, Arrays, Ips)) :-
 	initVars(VarsNames, Vars),
 	initArrays(ArraysNames, N, Arrays),
@@ -89,7 +89,7 @@ setCell(Id1, [H|T1], New, [H|T2]) :-
 % W NowaLista zmiennej Zmienna przypisana jest wartość
 % Wartość, reszta zmiennych i ich wartości się nie różni
 setVariable([val(X, _)|T], X, N, [val(X, N)|T]) :- !.
-setVariable([val(Y, V)|T1], X, N, [val(X, V)|T2]) :-
+setVariable([val(Y, V)|T1], X, N, [val(Y, V)|T2]) :-
 	X \= Y,
 	setVariable(T1, X, N, T2).
 
