@@ -235,10 +235,11 @@ traverse(_, _, State, _, Vis, Vis, _) :-
 	!.
 
 traverse(Program, _, State, Stack, Vis, Vis,
-	 error(Stack, L, StateNumber)) :-
+	 error(Inter, L, StateNumber)) :-
 	\+ member(State, Vis),
 	collision(Program, State, L),
 	!,
+	reverse(Stack, Inter),
 	length(Vis, VisLength),
 	StateNumber is VisLength + 1.
 
