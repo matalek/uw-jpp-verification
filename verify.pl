@@ -38,13 +38,13 @@ initArrays([V|T1], N, [val(V, Arr)|T2]) :-
 
 % initArray(Rozmiar, Lista) == Lista ma długość Rozmiar i jest
 % wypełniona zerami.
-initArray(0, []).
+initArray(0, []) :- !.
 initArray(N, [0|T]) :-
 	N > 0,
 	N1 is N - 1,
 	initArray(N1, T).
 
-% processList(LiczbaProcesów, ListaKolejnychProcesów).
+% processList(LiczbaProcesów, ListaKolejnychProcesów), numeracja od 0.
 processList(0, []).
 processList(N, [N1|T]) :-
 	N > 0,
@@ -65,10 +65,10 @@ member(N, [_|T], Res) :-
 step(program(_, _, S), N, In, Id, Out) :-
 	processList(N, PL),
 	member(Id, PL), % id procesu musi być w zakresie
-	stepAux(S, In, Id, Out).
+	step(S, In, Id, Out).
 
-% stepAux(+Instrukcje, +StanWe, +PrId, StanWy).
-stepAux(S, state(V1, A1, P1), Id, state(V2, A2, P2)) :-
+% step(+Instrukcje, +StanWe, +PrId, StanWy).
+step(S, state(V1, A1, P1), Id, state(V2, A2, P2)) :-
 	member(Id, P1, Cur1), % która instrukcja dla danego procesu
 	member(Cur1, S, Stmt),
 	stepSingle(Stmt, Id,
@@ -76,7 +76,7 @@ stepAux(S, state(V1, A1, P1), Id, state(V2, A2, P2)) :-
 		   singleState(V2, A2, Cur2)),
 	setCell(Id, P1, Cur2, P2).
 
-% setCell(Indeks, StaraLista, Wartość, NowaTablica) ==
+% setCell(Indeks, StaraTablica, Wartość, NowaTablica) ==
 % w NowaTablicy na indeksie Indeks stoi Wartość, reszta
 % wartości jest niezmieniona (numerujemy od 0)
 setCell(0, [_|T], New, [New|T]) :- !.
@@ -104,7 +104,7 @@ setArrayCell([val(Y, V)|T1], X, I, N, [val(Y, V)|T2]) :-
 	X \= Y,
 	setArrayCell(T1, X, I, N, T2).
 
-% stepSingle(Insrukcja, Proces, StanPojedynczyPoczątkowy,
+% stepSingle(Instrukcja, Proces, StanPojedynczyPoczątkowy,
 % StanPojednczyKońcowy) == StanPojedynczyKońcowy odpowiada wykonaniu
 % Instrukcji przez Proces w StanPojedynczyPoczątkowy
 stepSingle(assign(X, Exp), Id,
@@ -148,6 +148,7 @@ eval(arr(V, Exp), Vs, As, Id, N) :-
 eval(V, Vs, _, _, N) :-
 	atom(V),
 	V \= pid,
+	!,
 	member(val(V, N), Vs). 
 
 eval(E1 + E2, Vs, As, Id, N) :-
@@ -182,8 +183,8 @@ evalBool(E1 <> E2, Vs, As, Id) :-
 	N1 =\= N2.
 
 % Sprawdzanie poprawności
-% collision(Program, Stan) == w stanie co najmniej 2 procesy są
-% w sekcji krytycznej, L to lista tych procesów)
+% collision(Program, Stan, ListaProcesów) == w stanie co najmniej 2 procesy
+% są w sekcji krytycznej, ListaProcesów to lista tych procesów)
 collision(program(_, _, Stmts), state(_, _, Ps), L) :-
 	inSection(Ps, Stmts, L),
 	length(L, In),
@@ -212,13 +213,6 @@ inSection([H|T], Stmts, I, Res) :-
 % Un =  error(Przeplot, NumeryProcesówSekcji, NumerNiebezpiecznegoStanu).
 verify(Program, N, Un) :-
 	initState(Program, N, In),
-	check(Program, N, In, Un).
-
-% check(+Program, +LiczbaProcesów, +StanPoczątkowy, -Wynik),
-% gdzie Wynik będzie zmienną, jeśli nie udało się znaleźć kolizji,
-% będzie zaś termem postaci error(_, _, _), jeśli ta kolizja istnieje
-% (i ten term będzie odpowiadał kolizji).
-check(Program, N, In, Un) :-
 	traverse(Program, N, In, [], [], _, Un).
 
 % traverse(+Program, +LiczbaProcesów, Stan, +Stos
@@ -228,8 +222,7 @@ check(Program, N, In, Un) :-
 % pary (IdProcesu, NrInstrukcji).
 % Jeśli nie została znaleziona kolizja, to Wynik jest zmienną,
 % w przeciwnym przypadku zawiera on informacje o kolizji
-% (error(_, _, _)).
-
+% (format jw.).
 traverse(_, _, State, _, Vis, Vis, _) :-
 	member(State, Vis), % stan było już odwiedzony
 	!.
