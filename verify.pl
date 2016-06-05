@@ -183,6 +183,7 @@ evalBool(E1 <> E2, Vs, As, Id) :-
 	N1 =\= N2.
 
 % Sprawdzanie poprawności
+
 % collision(Program, Stan, ListaProcesów) == w stanie co najmniej 2 procesy
 % są w sekcji krytycznej, ListaProcesów to lista tych procesów)
 collision(program(_, _, Stmts), state(_, _, Ps), L) :-
@@ -206,7 +207,6 @@ inSection([H|T], Stmts, I, Res) :-
 	),
 	I1 is I + 1,
 	inSection(T, Stmts, I1, L).
-
 
 % verify(+Program, +N, -Un) == jeśli wynikowe Un jest zmienną, to Program jest
 % bezpieczny dla N procesów. Wpp. znaleziono kolizję i
@@ -311,7 +311,6 @@ verifyProgram(N, program(Vs, As, Stmts)) :-
 	;
 	    handleCollision(Res)
 	).
-
 
 % Wypisuje informację, gdy program jest bezpieczny
 handleSafe :-
