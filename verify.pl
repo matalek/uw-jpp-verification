@@ -266,35 +266,56 @@ traverse(Program, N, State, Id, Stack, Vis1, Vis, Un) :-
 findCurrent(state(_, _, Ps), Id, Cur) :-
 	member(Id, Ps, Cur).
 
-% Procedura główna
-verify(N, File) :-
-	(\+ integer(N) ->
-	    write('Error: parametr 0 powinien byc liczba'), nl, fail
-	; true ),
-	(N =< 0 ->
-	    write('Error: parametr 0 powinien byc liczba > 0'), nl, fail
-	; true ),
-	readProgram(File, Program),
-	verify(Program, N, Res),
-	(var(Res) ->
-	    write('Program jest poprawny (bezpieczny).')
-	;
-	    handleCollision(Res)
-	).
+% verify(LiczbaProcesów, Plik).
+verify(N, _) :-
+	\+ integer(N),
+	!,
+	write('Error: parametr 0 powinien byc liczba calkowita\n').
 
-% readProgram(Plik, Program)
-readProgram(File, program(Vs, As, Stmts)) :-
+verify(N, _) :-
+	integer(N),
+	N =< 0,
+	!,
+	write('Error: parametr 0 powinien byc liczba > 0\n').
+
+verify(N, File) :-
+	integer(N),
+	N > 0,
+	verifyFile(N, File).
+	
+
+% verifyFile(LiczbaProcesów, Plik)
+verifyFile(N, File) :-
 	set_prolog_flag(fileerrors, off),
 	see(File),
 	!, % czerwone odcięcie
 	read(vars(Vs)),
 	read(arrays(As)),
 	read(program(Stmts)),
-	seen.
+	seen,
+	verifyProgram(N, program(Vs, As, Stmts)).
 
-readProgram(File, _) :-
-	format('Error: brak pliku o nazwie - ~s', [File]),nl,
-	fail. % wywołanie kończy się błędem
+verifyFile(_, File) :-
+	format('Error: brak pliku o nazwie - ~s', [File]), nl.
+
+% verifyProgram(LiczbaProcesów, Program).
+verifyProgram(_, program(_, _, [])) :-
+	!,
+	handleSafe.  % programy bez instrukcji są bezpieczne
+
+verifyProgram(N, program(Vs, As, Stmts)) :-
+	Stmts \= [],
+	verify(program(Vs, As, Stmts), N, Res),
+	(var(Res) ->
+	    handleSafe
+	;
+	    handleCollision(Res)
+	).
+
+
+% Wypisuje informację, gdy program jest bezpieczny
+handleSafe :-
+	write('Program jest poprawny (bezpieczny).').
 
 % Wypisuje pełną informację, gdy program nie jest bezpieczny
 handleCollision(error(Inter, [Num1, Num2|_], StateNumber)) :-
