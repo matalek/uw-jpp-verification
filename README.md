@@ -1,4 +1,4 @@
-#Program verification tool in Prolog#
+# Program verification tool in Prolog
 ## Project created as an assignment for *Programming Languages and Paradigms* course ##
 
 ### Task ###
